@@ -1,0 +1,59 @@
+# template
+# - version: 1.0
+#   # important
+#   dependencies: []
+#   crutches:     [] # post factum indication
+#   fixes:        []
+#   deprecations: []
+#   improvements: []
+#
+#   # news
+#   modules:         []
+#   definitions:     []
+#   classes:         []
+#   class-functions: []
+#   types:           []
+#   type-families:   []
+#   exceptions:      []
+#   syntax:          []
+#   tests:           []
+#   benchmarks:      []
+#
+#   # changes
+#   moved:        []
+#   changes:      []
+#   superclasses: []
+#   removed:      []
+
+---
+
+- version: 0.2
+  # important
+  dependencies:
+    - package: base
+      since: 4.12
+      upto: 5
+
+    - package: dsdp
+      since: 0.2
+      upto: 1
+
+  # news
+  modules:
+    - Control.Exception.C: related exceptions
+
+    - Foreign.Memory: memory managenemt classes
+    - Foreign.Lists: foreign linked and doubly linked lists
+
+    - SDP.Prim.PtrArray: pointer-based pseudo-primitive
+
+  definitions:
+    - Foreign.Memory: (*&) and ptrSize
+
+  classes:
+    - IsPtr: pointer-like types
+    - Destruct: generalized free and destruct functions for Ptr-based types
+    - Finalize: generalized ForeignPtr-based touch and finalize
+
+  types:
+    - PtrArray: sdp-compatible Ptr-based pseudo-primitive type
