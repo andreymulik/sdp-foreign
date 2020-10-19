@@ -261,14 +261,11 @@ instance LinearM IO (Linked2 e) (Ptr e)
 
 --------------------------------------------------------------------------------
 
-{- IndexedM and IFoldM instances. -}
+{- MapM, IndexedM and IFoldM instances. -}
 
-instance IndexedM IO (Linked e) Int (Ptr e)
+instance MapM IO (Linked e) Int (Ptr e)
   where
-    fromAssocs' bnds = newLinear ... assoc' bnds
-    
-    fromIndexed' = newLinear . listL
-    fromIndexedM = newLinear <=< getLeft
+    newMap' = newLinear ... toMap'
     
     es >! i = i == 0 ? getElem es $ do nx <- getNext es; nx !> (i - 1)
     
@@ -281,6 +278,38 @@ instance IndexedM IO (Linked e) Int (Ptr e)
       bnds@(l, _) <- getBounds xs
       sequence_ [ writeM_ xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
       return xs
+
+instance MapM IO (Linked2 e) Int (Ptr e)
+  where
+    newMap' = newLinear ... toMap'
+    
+    overwrite es ascs = go =<< getStart2 es
+      where
+        go (Linked2 Z) = return Z
+        go xs = do
+          bnds@(l, _) <- getBounds xs
+          sequence_ [ writeM_ xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
+          return xs
+    
+    es >! i =
+      let go o = o == 0 ? getElem2 $ go (o - 1) <=< getNext2
+      in  go i =<< getStart2 es
+    
+    es !> i = do
+        when (isNull es) $ nullEx "(!>) {Linked2}"
+        when   (i < 0)   $ undEx  "(!>) {Linked2}"
+        go i =<< getStart2 es
+      where
+        go _ Z  = overEx "(!>) {Linked2}"
+        go 0 xs = getElem2 xs
+        go o xs = go (o - 1) =<< getNext2 xs
+
+instance IndexedM IO (Linked e) Int (Ptr e)
+  where
+    fromAssocs' bnds = newLinear ... assoc' bnds
+    
+    fromIndexed' = newLinear . listL
+    fromIndexedM = newLinear <=< getLeft
     
     writeM_ (Linked es) 0 e = unless (isNull es) $ do
       x <- peekByteOff es 0
@@ -297,33 +326,12 @@ instance IndexedM IO (Linked2 e) Int (Ptr e)
     fromIndexed' = newLinear . listL
     fromIndexedM = newLinear <=< getLeft
     
-    overwrite es ascs = go =<< getStart2 es
-      where
-        go (Linked2 Z) = return Z
-        go xs = do
-          bnds@(l, _) <- getBounds xs
-          sequence_ [ writeM_ xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
-          return xs
-    
     writeM_ (Linked2  Z) _ _ = return ()
     writeM_ (Linked2 es) 0 e = do
       x <- peekByteOff es 0
       free (x `asTypeOf` e)
       pokeByteOff es 0 e
     writeM_ es i e = do nx <- getNext2 es; writeM_ nx i e
-    
-    es >! i =
-      let go o = o == 0 ? getElem2 $ go (o - 1) <=< getNext2
-      in  go i =<< getStart2 es
-    
-    es !> i = do
-        when (isNull es) $ nullEx "(!>) {Linked2}"
-        when   (i < 0)   $ undEx  "(!>) {Linked2}"
-        go i =<< getStart2 es
-      where
-        go _ Z  = overEx "(!>) {Linked2}"
-        go 0 xs = getElem2 xs
-        go o xs = go (o - 1) =<< getNext2 xs
 
 instance IFoldM IO (Linked e) Int (Ptr e)
   where
@@ -405,6 +413,8 @@ getStart2 es = do pr <- getPrev2 es; isNull pr ? return es $ getStart2 pr
 getEnd2 :: Linked2 e -> IO (Linked2 e)
 getEnd2 Z  = return Z
 getEnd2 es = do nx' <- getNext2 es; isNull nx' ? return es $ getEnd2 nx'
+
+--------------------------------------------------------------------------------
 
 undEx :: String -> IO a
 undEx =  throwIO . IndexUnderflow . showString "in Foreign.Lists."

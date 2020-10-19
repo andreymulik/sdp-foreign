@@ -14,7 +14,6 @@ module SDP.Prim.PtrArray
 (
   -- * Exports
   module Foreign.Memory,
-  
   module SDP.IndexedM,
   module SDP.SortM,
   
@@ -102,10 +101,10 @@ instance (Storable e) => LinearM IO (PtrArray e) e
   where
     newNull = return Z
     nowNull = return . isNull
-    {-
+    
     getHead es = es >! 0
     getLast es = es >! upper es
-    -}
+    
     newLinear es = PtrArray (length es) 0 <$> newArray es
     
     newLinearN n es = PtrArray n 0 <$> newArray es
@@ -125,11 +124,7 @@ instance (Storable e) => LinearM IO (PtrArray e) e
       copy <- mallocArray n'
       copyArray copy (ptr *& (o + l)) n'
       return (PtrArray n' o ptr)
-    {-
-    reversed es =
-      let go i j = when (i < j) $ go (i + 1) (j - 1) >> swapM es i j
-      in  go 0 (sizeOf es - 1) >> return es
-    -}
+    
     filled n e = do
       let n' = max 0 n
       ptr <- mallocArray n'
@@ -200,6 +195,21 @@ instance (Storable e) => SplitM IO (PtrArray e) e
 
 {- IndexedM, IFoldM and SortM instances. -}
 
+instance (Storable e) => MapM IO (PtrArray e) Int e
+  where
+    newMap ascs = do
+      let n = sizeOf ascs
+      es <- PtrArray n 0 <$> callocArray n
+      overwrite es ascs
+    
+    newMap' defvalue ascs = sizeOf ascs `filled` defvalue >>= (`overwrite` ascs)
+    
+    (>!) = (!#>)
+    
+    overwrite es ascs =
+      let ies = filter (indexIn es . fst) ascs
+      in  mapM_ (uncurry $ writeM_ es) ies >> return es
+
 instance (Storable e) => IndexedM IO (PtrArray e) Int e
   where
     fromAssocs bnds ascs = do
@@ -209,17 +219,11 @@ instance (Storable e) => IndexedM IO (PtrArray e) Int e
     
     fromAssocs' bnds defvalue ascs = size bnds `filled` defvalue >>= (`overwrite` ascs)
     
-    (>!) = (!#>)
-    
     {-# INLINE writeM_ #-}
     writeM_ (PtrArray _ o ptr) = pokeElemOff ptr . (o +)
     
     {-# INLINE writeM #-}
     writeM es = \ i -> when (indexIn es i) . writeM_ es i
-    
-    overwrite es ascs =
-      let ies = filter (indexIn es . fst) ascs
-      in  mapM_ (uncurry $ writeM_ es) ies >> return es
     
     fromIndexed' es = do
       let n = sizeOf es
@@ -297,4 +301,5 @@ underEx =  throw . IndexUnderflow . showString "in SDP.Prim.PtrArray."
 
 overEx :: String -> a
 overEx =  throw . IndexOverflow . showString "in SDP.Prim.PtrArray."
+
 
