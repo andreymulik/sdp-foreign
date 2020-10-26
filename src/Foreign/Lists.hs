@@ -178,6 +178,14 @@ instance LinearM IO (Linked e) (Ptr e)
     
     (!#>) = (>!)
     
+    writeM (Linked es) 0 e = unless (isNull es) $ do
+      x <- peekByteOff es 0
+      free (x `asTypeOf` e)
+      pokeByteOff es 0 e
+    writeM es i e = unless (isNull es || i < 0) $ do
+      nx <- getNext es
+      writeM nx (i - 1) e
+    
     reversed es = do xs <- i_foldlM (flip prepend) Z es; free es; return xs
     
     filled n e = n < 1 ? return Z $ filled (n - 1) e >>= prepend e
@@ -235,6 +243,13 @@ instance LinearM IO (Linked2 e) (Ptr e)
     
     (!#>) = (>!)
     
+    writeM (Linked2  Z) _ _ = return ()
+    writeM (Linked2 es) 0 e = do
+      x <- peekByteOff es 0
+      free (x `asTypeOf` e)
+      pokeByteOff es 0 e
+    writeM es i e = do nx <- getNext2 es; writeM nx i e
+    
     reversed es = do getStart2 es >>= go; return es
       where
         go (Linked2 xs) = unless (isNull xs) $ do
@@ -276,7 +291,7 @@ instance MapM IO (Linked e) Int (Ptr e)
     
     overwrite xs ascs = isNull xs ? return xs $ do
       bnds@(l, _) <- getBounds xs
-      sequence_ [ writeM_ xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
+      sequence_ [ writeM xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
       return xs
 
 instance MapM IO (Linked2 e) Int (Ptr e)
@@ -288,7 +303,7 @@ instance MapM IO (Linked2 e) Int (Ptr e)
         go (Linked2 Z) = return Z
         go xs = do
           bnds@(l, _) <- getBounds xs
-          sequence_ [ writeM_ xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
+          sequence_ [ writeM xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
           return xs
     
     es >! i =
@@ -310,14 +325,6 @@ instance IndexedM IO (Linked e) Int (Ptr e)
     
     fromIndexed' = newLinear . listL
     fromIndexedM = newLinear <=< getLeft
-    
-    writeM_ (Linked es) 0 e = unless (isNull es) $ do
-      x <- peekByteOff es 0
-      free (x `asTypeOf` e)
-      pokeByteOff es 0 e
-    writeM_ es i e = unless (isNull es || i < 0) $ do
-      nx <- getNext es
-      writeM_ nx (i - 1) e
 
 instance IndexedM IO (Linked2 e) Int (Ptr e)
   where
@@ -325,13 +332,6 @@ instance IndexedM IO (Linked2 e) Int (Ptr e)
     
     fromIndexed' = newLinear . listL
     fromIndexedM = newLinear <=< getLeft
-    
-    writeM_ (Linked2  Z) _ _ = return ()
-    writeM_ (Linked2 es) 0 e = do
-      x <- peekByteOff es 0
-      free (x `asTypeOf` e)
-      pokeByteOff es 0 e
-    writeM_ es i e = do nx <- getNext2 es; writeM_ nx i e
 
 instance IFoldM IO (Linked e) Int (Ptr e)
   where

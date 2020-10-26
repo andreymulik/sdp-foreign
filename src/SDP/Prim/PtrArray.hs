@@ -114,6 +114,9 @@ instance (Storable e) => LinearM IO (PtrArray e) e
     {-# INLINE (!#>) #-}
     (!#>) (PtrArray _ o ptr) i = peekElemOff ptr (o + i)
     
+    {-# INLINE writeM #-}
+    writeM (PtrArray _ o ptr) = pokeElemOff ptr . (o +)
+    
     copied (PtrArray n o ptr) = do
       copy <- mallocArray n
       copyArray copy (ptr *& o) n
@@ -208,7 +211,7 @@ instance (Storable e) => MapM IO (PtrArray e) Int e
     
     overwrite es ascs =
       let ies = filter (indexIn es . fst) ascs
-      in  mapM_ (uncurry $ writeM_ es) ies >> return es
+      in  mapM_ (uncurry $ writeM es) ies >> return es
 
 instance (Storable e) => IndexedM IO (PtrArray e) Int e
   where
@@ -219,22 +222,19 @@ instance (Storable e) => IndexedM IO (PtrArray e) Int e
     
     fromAssocs' bnds defvalue ascs = size bnds `filled` defvalue >>= (`overwrite` ascs)
     
-    {-# INLINE writeM_ #-}
-    writeM_ (PtrArray _ o ptr) = pokeElemOff ptr . (o +)
-    
-    {-# INLINE writeM #-}
-    writeM es = \ i -> when (indexIn es i) . writeM_ es i
+    {-# INLINE writeM' #-}
+    writeM' es = \ i -> when (indexIn es i) . writeM es i
     
     fromIndexed' es = do
       let n = sizeOf es
       copy <- PtrArray n 0 <$> mallocArray n
-      forM_ [0 .. n - 1] $ \ i -> writeM_ copy i (es !^ i)
+      forM_ [0 .. n - 1] $ \ i -> writeM copy i (es !^ i)
       return copy
     
     fromIndexedM es = do
       n    <- getSizeOf es
       copy <- PtrArray n 0 <$> mallocArray n
-      forM_ [0 .. n - 1] $ \ i -> es !#> i >>= writeM_ copy i
+      forM_ [0 .. n - 1] $ \ i -> es !#> i >>= writeM copy i
       return copy
 
 instance (Storable e) => IFoldM IO (PtrArray e) Int e
