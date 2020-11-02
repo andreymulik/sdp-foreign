@@ -139,7 +139,7 @@ instance Storable (LinkedRep2 e)
 instance BorderedM IO (Linked e) Int
   where
     getLower  _ = return 0
-    getSizeOf   = i_foldrM (\ _ c -> return $ c + 1) 0
+    getSizeOf   = k_foldrM (\ _ c -> return $ c + 1) 0
     getUpper  p = do s <- getSizeOf p; return (s - 1)
     getBounds p = do s <- getSizeOf p; return (0, s - 1)
 
@@ -173,8 +173,8 @@ instance LinearM IO (Linked e) (Ptr e)
     fromFoldableM = foldr ((=<<) . prepend) (return Z)
     newLinear     = fromFoldableM
     
-    getLeft  = i_foldrM (return ... (:)) []
-    getRight = i_foldlM (return ... flip (:)) []
+    getLeft  = k_foldrM (return ... (:)) []
+    getRight = k_foldlM (return ... flip (:)) []
     
     (!#>) = (>!)
     
@@ -186,7 +186,7 @@ instance LinearM IO (Linked e) (Ptr e)
       nx <- getNext es
       writeM nx (i - 1) e
     
-    reversed es = do xs <- i_foldlM (flip prepend) Z es; free es; return xs
+    reversed es = do xs <- k_foldlM (flip prepend) Z es; free es; return xs
     
     filled n e = n < 1 ? return Z $ filled (n - 1) e >>= prepend e
     
@@ -276,7 +276,7 @@ instance LinearM IO (Linked2 e) (Ptr e)
 
 --------------------------------------------------------------------------------
 
-{- MapM, IndexedM and IFoldM instances. -}
+{- MapM, IndexedM and KFoldM instances. -}
 
 instance MapM IO (Linked e) Int (Ptr e)
   where
@@ -325,6 +325,8 @@ instance IndexedM IO (Linked e) Int (Ptr e)
     
     fromIndexed' = newLinear . listL
     fromIndexedM = newLinear <=< getLeft
+    
+    writeM' = writeM
 
 instance IndexedM IO (Linked2 e) Int (Ptr e)
   where
@@ -332,46 +334,48 @@ instance IndexedM IO (Linked2 e) Int (Ptr e)
     
     fromIndexed' = newLinear . listL
     fromIndexedM = newLinear <=< getLeft
+    
+    writeM' = writeM
 
-instance IFoldM IO (Linked e) Int (Ptr e)
+instance KFoldM IO (Linked e) Int (Ptr e)
   where
-    i_foldrM _ base Z  = return base
-    i_foldrM f base es = (i_foldrM f base =<< getNext es) >>=<< getElem es $ flip f
+    k_foldrM _ base Z  = return base
+    k_foldrM f base es = (k_foldrM f base =<< getNext es) >>=<< getElem es $ flip f
     
-    i_foldlM _ base Z  = return base
-    i_foldlM f base es = (f base =<< getElem es) >>=<< getNext es $ i_foldlM f
+    k_foldlM _ base Z  = return base
+    k_foldlM f base es = (f base =<< getElem es) >>=<< getNext es $ k_foldlM f
     
-    ofoldrM = ifoldrM
-    ofoldlM = ifoldlM
+    ofoldrM = kfoldrM
+    ofoldlM = kfoldlM
     
-    ifoldrM = go 0
+    kfoldrM = go 0
       where
         go _ _ base Z = return base
         go o f base es = (go (o + 1) f base =<< getNext es) >>=<< getElem es $ flip (f o)
     
-    ifoldlM = go 0
+    kfoldlM = go 0
       where
         go _ _ base Z = return base
         go o f base es = (f o base =<< getElem es) >>=<< getNext es $ go (o + 1) f
 
-instance IFoldM IO (Linked2 e) Int (Ptr e)
+instance KFoldM IO (Linked2 e) Int (Ptr e)
   where
-    i_foldrM g b xs = go g b =<< getStart2 xs
+    k_foldrM g b xs = go g b =<< getStart2 xs
       where
         go _ base Z  = return base
         go f base es = (getNext2 es >>= go f base) >>=<< getElem2 es $ flip f
     
-    i_foldlM g b xs = go g b =<< getStart2 xs
+    k_foldlM g b xs = go g b =<< getStart2 xs
       where
         go _ base Z  = return base
         go f base es = (getElem2 es >>= f base) >>=<< getNext2 es $ go f
     
-    ifoldrM g b xs = go 0 g b =<< getStart2 xs
+    kfoldrM g b xs = go 0 g b =<< getStart2 xs
       where
         go _ _ base Z  = return base
         go o f base es = (getNext2 es >>= go (o + 1) f base) >>=<< getElem2 es $ flip (f o)
     
-    ifoldlM g b xs = go 0 g b =<< getStart2 xs
+    kfoldlM g b xs = go 0 g b =<< getStart2 xs
       where
         go _ _ base Z  = return base
         go o f base es = (getElem2 es >>= f o base) >>=<< getNext2 es $ go (o + 1) f
@@ -419,12 +423,13 @@ getEnd2 es = do nx' <- getNext2 es; isNull nx' ? return es $ getEnd2 nx'
 undEx :: String -> IO a
 undEx =  throwIO . IndexUnderflow . showString "in Foreign.Lists."
 
-nullEx :: String -> IO a
-nullEx =  throwIO . NullPointerException . showString "in Foreign.Lists."
-
 overEx :: String -> IO a
 overEx =  throwIO . IndexOverflow . showString "in Foreign.Lists."
 
 underEx :: String -> IO a
 underEx =  throwIO . IndexUnderflow . showString "in Foreign.Lists."
+
+nullEx :: String -> IO a
+nullEx =  throwIO . NullPointerException . showString "in Foreign.Lists."
+
 

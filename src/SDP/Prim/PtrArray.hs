@@ -196,7 +196,7 @@ instance (Storable e) => SplitM IO (PtrArray e) e
 
 --------------------------------------------------------------------------------
 
-{- IndexedM, IFoldM and SortM instances. -}
+{- IndexedM, KFoldM and SortM instances. -}
 
 instance (Storable e) => MapM IO (PtrArray e) Int e
   where
@@ -237,10 +237,10 @@ instance (Storable e) => IndexedM IO (PtrArray e) Int e
       forM_ [0 .. n - 1] $ \ i -> es !#> i >>= writeM copy i
       return copy
 
-instance (Storable e) => IFoldM IO (PtrArray e) Int e
+instance (Storable e) => KFoldM IO (PtrArray e) Int e
   where
-    ifoldrM = ofoldrM
-    ifoldlM = ofoldlM
+    kfoldrM = ofoldrM
+    kfoldlM = ofoldlM
     
     ofoldrM  f base = \ arr@(PtrArray n _ _) ->
       let go i =  n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f i
@@ -250,11 +250,11 @@ instance (Storable e) => IFoldM IO (PtrArray e) Int e
       let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f i
       in  go (n - 1)
     
-    i_foldrM f base = \ arr@(PtrArray n _ _) ->
+    k_foldrM f base = \ arr@(PtrArray n _ _) ->
       let go i = n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f
       in  go 0
     
-    i_foldlM f base = \ arr@(PtrArray n _ _) ->
+    k_foldlM f base = \ arr@(PtrArray n _ _) ->
       let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f
       in  go (n - 1)
 
