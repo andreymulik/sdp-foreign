@@ -145,6 +145,22 @@ instance (Storable e) => LinearM IO (PtrArray e) e
         PtrArray n 0 ptr <$ foldr ((=<<) . writer) (return 0) ess
       where
         n = foldr' ((+) . sizeOf) 0 ess
+    
+    ofoldrM f base = \ arr@(PtrArray n _ _) ->
+      let go i =  n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f i
+      in  go 0
+    
+    ofoldlM f base = \ arr@(PtrArray n _ _) ->
+      let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f i
+      in  go (n - 1)
+    
+    o_foldrM f base = \ arr@(PtrArray n _ _) ->
+      let go i = n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f
+      in  go 0
+    
+    o_foldlM f base = \ arr@(PtrArray n _ _) ->
+      let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f
+      in  go (n - 1)
 
 instance (Storable e) => SplitM IO (PtrArray e) e
   where
@@ -196,7 +212,7 @@ instance (Storable e) => SplitM IO (PtrArray e) e
 
 --------------------------------------------------------------------------------
 
-{- IndexedM, KFoldM and SortM instances. -}
+{- IndexedM and SortM instances. -}
 
 instance (Storable e) => MapM IO (PtrArray e) Int e
   where
@@ -212,6 +228,9 @@ instance (Storable e) => MapM IO (PtrArray e) Int e
     overwrite es ascs =
       let ies = filter (indexIn es . fst) ascs
       in  mapM_ (uncurry $ writeM es) ies >> return es
+    
+    kfoldrM = ofoldrM
+    kfoldlM = ofoldlM
 
 instance (Storable e) => IndexedM IO (PtrArray e) Int e
   where
@@ -236,27 +255,6 @@ instance (Storable e) => IndexedM IO (PtrArray e) Int e
       copy <- PtrArray n 0 <$> mallocArray n
       forM_ [0 .. n - 1] $ \ i -> es !#> i >>= writeM copy i
       return copy
-
-instance (Storable e) => KFoldM IO (PtrArray e) Int e
-  where
-    kfoldrM = ofoldrM
-    kfoldlM = ofoldlM
-    
-    ofoldrM  f base = \ arr@(PtrArray n _ _) ->
-      let go i =  n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f i
-      in  go 0
-    
-    ofoldlM  f base = \ arr@(PtrArray n _ _) ->
-      let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f i
-      in  go (n - 1)
-    
-    k_foldrM f base = \ arr@(PtrArray n _ _) ->
-      let go i = n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f
-      in  go 0
-    
-    k_foldlM f base = \ arr@(PtrArray n _ _) ->
-      let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f
-      in  go (n - 1)
 
 instance (Storable e) => SortM IO (PtrArray e) e where sortMBy = timSortBy
 
@@ -301,5 +299,7 @@ underEx =  throw . IndexUnderflow . showString "in SDP.Prim.PtrArray."
 
 overEx :: String -> a
 overEx =  throw . IndexOverflow . showString "in SDP.Prim.PtrArray."
+
+
 
 

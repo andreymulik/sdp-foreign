@@ -139,7 +139,7 @@ instance Storable (LinkedRep2 e)
 instance BorderedM IO (Linked e) Int
   where
     getLower  _ = return 0
-    getSizeOf   = k_foldrM (\ _ c -> return $ c + 1) 0
+    getSizeOf   = o_foldrM (\ _ c -> return $ c + 1) 0
     getUpper  p = do s <- getSizeOf p; return (s - 1)
     getBounds p = do s <- getSizeOf p; return (0, s - 1)
 
@@ -173,8 +173,8 @@ instance LinearM IO (Linked e) (Ptr e)
     fromFoldableM = foldr ((=<<) . prepend) (return Z)
     newLinear     = fromFoldableM
     
-    getLeft  = k_foldrM (return ... (:)) []
-    getRight = k_foldlM (return ... flip (:)) []
+    getLeft  = o_foldrM (return ... (:)) []
+    getRight = o_foldlM (return ... flip (:)) []
     
     (!#>) = (>!)
     
@@ -186,7 +186,7 @@ instance LinearM IO (Linked e) (Ptr e)
       nx <- getNext es
       writeM nx (i - 1) e
     
-    reversed es = do xs <- k_foldlM (flip prepend) Z es; free es; return xs
+    reversed es = do xs <- o_foldlM (flip prepend) Z es; free es; return xs
     
     filled n e = n < 1 ? return Z $ filled (n - 1) e >>= prepend e
     
@@ -205,6 +205,22 @@ instance LinearM IO (Linked e) (Ptr e)
         skip' Z  _ = overEx "copyTo"
         skip' es 0 = return es
         skip' es i = do nx <- getNext es; skip' nx (i - 1)
+    
+    ofoldrM = go 0
+      where
+        go _ _ base  Z = return base
+        go o f base es = (go (o + 1) f base =<< getNext es) >>=<< getElem es $ flip (f o)
+    
+    ofoldlM = go 0
+      where
+        go _ _ base  Z = return base
+        go o f base es = (f o base =<< getElem es) >>=<< getNext es $ go (o + 1) f
+    
+    o_foldrM _ base Z  = return base
+    o_foldrM f base es = (o_foldrM f base =<< getNext es) >>=<< getElem es $ flip f
+    
+    o_foldlM _ base Z  = return base
+    o_foldlM f base es = (f base =<< getElem es) >>=<< getNext es $ o_foldlM f
 
 instance LinearM IO (Linked2 e) (Ptr e)
   where
@@ -273,10 +289,30 @@ instance LinearM IO (Linked2 e) (Ptr e)
           y' <- peekByteOff ys' 0
           pokeByteOff y' 0 =<< getElem2 xs
           getNext2 xs >>=<< getNext2 ys $ go (n - 1)
+    
+    ofoldrM = go 0
+      where
+        go _ _ base  Z = return base
+        go o f base es = (go (o + 1) f base =<< getNext2 es) >>=<< getElem2 es $ flip (f o)
+    
+    ofoldlM = go 0
+      where
+        go _ _ base  Z = return base
+        go o f base es = (f o base =<< getElem2 es) >>=<< getNext2 es $ go (o + 1) f
+    
+    o_foldrM g b xs = go g b =<< getStart2 xs
+      where
+        go _ base Z  = return base
+        go f base es = (getNext2 es >>= go f base) >>=<< getElem2 es $ flip f
+    
+    o_foldlM g b xs = go g b =<< getStart2 xs
+      where
+        go _ base Z  = return base
+        go f base es = (getElem2 es >>= f base) >>=<< getNext2 es $ go f
 
 --------------------------------------------------------------------------------
 
-{- MapM, IndexedM and KFoldM instances. -}
+{- MapM and IndexedM instances. -}
 
 instance MapM IO (Linked e) Int (Ptr e)
   where
@@ -293,6 +329,9 @@ instance MapM IO (Linked e) Int (Ptr e)
       bnds@(l, _) <- getBounds xs
       sequence_ [ writeM xs (i - l) e | (i, e) <- ascs, inRange bnds i ]
       return xs
+    
+    kfoldrM = ofoldrM
+    kfoldlM = ofoldlM
 
 instance MapM IO (Linked2 e) Int (Ptr e)
   where
@@ -318,6 +357,9 @@ instance MapM IO (Linked2 e) Int (Ptr e)
         go _ Z  = overEx "(!>) {Linked2}"
         go 0 xs = getElem2 xs
         go o xs = go (o - 1) =<< getNext2 xs
+    
+    kfoldrM = ofoldrM
+    kfoldlM = ofoldlM
 
 instance IndexedM IO (Linked e) Int (Ptr e)
   where
@@ -336,49 +378,6 @@ instance IndexedM IO (Linked2 e) Int (Ptr e)
     fromIndexedM = newLinear <=< getLeft
     
     writeM' = writeM
-
-instance KFoldM IO (Linked e) Int (Ptr e)
-  where
-    k_foldrM _ base Z  = return base
-    k_foldrM f base es = (k_foldrM f base =<< getNext es) >>=<< getElem es $ flip f
-    
-    k_foldlM _ base Z  = return base
-    k_foldlM f base es = (f base =<< getElem es) >>=<< getNext es $ k_foldlM f
-    
-    ofoldrM = kfoldrM
-    ofoldlM = kfoldlM
-    
-    kfoldrM = go 0
-      where
-        go _ _ base Z = return base
-        go o f base es = (go (o + 1) f base =<< getNext es) >>=<< getElem es $ flip (f o)
-    
-    kfoldlM = go 0
-      where
-        go _ _ base Z = return base
-        go o f base es = (f o base =<< getElem es) >>=<< getNext es $ go (o + 1) f
-
-instance KFoldM IO (Linked2 e) Int (Ptr e)
-  where
-    k_foldrM g b xs = go g b =<< getStart2 xs
-      where
-        go _ base Z  = return base
-        go f base es = (getNext2 es >>= go f base) >>=<< getElem2 es $ flip f
-    
-    k_foldlM g b xs = go g b =<< getStart2 xs
-      where
-        go _ base Z  = return base
-        go f base es = (getElem2 es >>= f base) >>=<< getNext2 es $ go f
-    
-    kfoldrM g b xs = go 0 g b =<< getStart2 xs
-      where
-        go _ _ base Z  = return base
-        go o f base es = (getNext2 es >>= go (o + 1) f base) >>=<< getElem2 es $ flip (f o)
-    
-    kfoldlM g b xs = go 0 g b =<< getStart2 xs
-      where
-        go _ _ base Z  = return base
-        go o f base es = (getElem2 es >>= f o base) >>=<< getNext2 es $ go (o + 1) f
 
 --------------------------------------------------------------------------------
 
@@ -431,5 +430,6 @@ underEx =  throwIO . IndexUnderflow . showString "in Foreign.Lists."
 
 nullEx :: String -> IO a
 nullEx =  throwIO . NullPointerException . showString "in Foreign.Lists."
+
 
 
