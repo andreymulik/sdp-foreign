@@ -23,22 +23,20 @@ module SDP.Prim.PtrArray
 where
 
 import Prelude ()
-import SDP.SafePrelude
 import SDP.IndexedM
-import SDP.Unboxed
-
-import SDP.SortM.Tim
-import SDP.SortM
+import SDP.SafePrelude
 
 import SDP.Prim.SArray
 import SDP.Prim.SBytes
+
+import SDP.SortM.Tim
+import SDP.SortM
 
 import Foreign.Storable hiding ( sizeOf )
 import Foreign.Marshal  hiding (  free  )
 import Foreign.Memory
 
 import Data.Typeable
-import Data.Function
 
 import Control.Exception.SDP
 
@@ -48,9 +46,9 @@ default ()
 
 -- | 'PtrArray' - pseudo-primitive strict unboxed mutable array.
 data PtrArray e = PtrArray
-                          {-# UNPACK #-} !Int -- ^ Element count (not a real size)
-                          {-# UNPACK #-} !Int -- ^ Offset (is elements)
-                          !(Ptr e)            -- ^ Real pointer
+    {-# UNPACK #-} !Int -- ^ Element count (not a real size)
+    {-# UNPACK #-} !Int -- ^ Offset (is elements)
+    !(Ptr e)            -- ^ Real pointer
   deriving ( Eq, Typeable )
 
 --------------------------------------------------------------------------------
@@ -269,8 +267,8 @@ instance IsPtr PtrArray
 
 instance Destruct PtrArray
   where
-    destruct f = \ (PtrArray _ _ ptr) -> f ptr
-    free       = \ (PtrArray _ _ ptr) -> free ptr
+    destruct f (PtrArray _ _ ptr) = f ptr
+    free       (PtrArray _ _ ptr) = free ptr
 
 --------------------------------------------------------------------------------
 
@@ -299,7 +297,4 @@ underEx =  throw . IndexUnderflow . showString "in SDP.Prim.PtrArray."
 
 overEx :: String -> a
 overEx =  throw . IndexOverflow . showString "in SDP.Prim.PtrArray."
-
-
-
 
