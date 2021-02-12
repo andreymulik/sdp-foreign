@@ -41,10 +41,10 @@ Library
   exposed-modules:
     Control.Exception.C
     
+    SDP.Prim.ForeignArray
     SDP.Prim.PtrArray
     
     Foreign.Memory
     Foreign.Lists
-
 
 

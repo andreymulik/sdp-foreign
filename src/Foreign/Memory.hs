@@ -73,7 +73,7 @@ class Destruct mem
     -- | Free all associated memory blocks.
     free :: mem a -> IO ()
     
-    -- | Free all associated memory blocks with guven function.
+    -- | Free all associated memory blocks with given function.
     destruct :: (Ptr a -> IO ()) -> mem a -> IO ()
 
 instance Destruct Ptr
@@ -81,6 +81,13 @@ instance Destruct Ptr
     free = F.free
     
     destruct = ($)
+
+instance Destruct ForeignPtr
+  where
+    free = finalizeForeignPtr
+    
+    -- | Ignores given function, run 'finalizeForeignPtr'.
+    destruct = const finalizeForeignPtr
 
 --------------------------------------------------------------------------------
 
@@ -99,7 +106,5 @@ instance Finalize ForeignPtr
   where
     finalize = finalizeForeignPtr
     touch    = touchForeignPtr
-
-
 
 

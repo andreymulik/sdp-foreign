@@ -254,7 +254,15 @@ instance (Storable e) => IndexedM IO (PtrArray e) Int e
       forM_ [0 .. n - 1] $ \ i -> es !#> i >>= writeM copy i
       return copy
 
-instance (Storable e) => SortM IO (PtrArray e) e where sortMBy = timSortBy
+instance (Storable e) => SortM IO (PtrArray e) e
+  where
+    sortedMBy f es@(PtrArray n _ _) = n < 2 ? return True $ go 1 =<< getHead es
+      where
+        go i e1 = i == n ? return True $ do
+          e2 <- es !#> i;
+          e1 `f` e2 ? go (i + 1) e2 $ return False
+    
+    sortMBy = timSortBy
 
 --------------------------------------------------------------------------------
 
@@ -297,4 +305,6 @@ underEx =  throw . IndexUnderflow . showString "in SDP.Prim.PtrArray."
 
 overEx :: String -> a
 overEx =  throw . IndexOverflow . showString "in SDP.Prim.PtrArray."
+
+
 
