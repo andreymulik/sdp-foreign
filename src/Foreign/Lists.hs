@@ -139,7 +139,7 @@ instance Storable (LinkedRep2 e)
 instance BorderedM IO (Linked e) Int
   where
     getLower  _ = return 0
-    getSizeOf   = o_foldrM (\ _ c -> return $ c + 1) 0
+    getSizeOf   = foldrM (\ _ c -> return $ c + 1) 0
     getUpper  p = do s <- getSizeOf p; return (s - 1)
     getBounds p = do s <- getSizeOf p; return (0, s - 1)
 
@@ -173,8 +173,8 @@ instance LinearM IO (Linked e) (Ptr e)
     fromFoldableM = foldr ((=<<) . prepend) (return Z)
     newLinear     = fromFoldableM
     
-    getLeft  = o_foldrM (return ... (:)) []
-    getRight = o_foldlM (return ... flip (:)) []
+    getLeft  = foldrM (return ... (:)) []
+    getRight = foldlM (return ... flip (:)) []
     
     (!#>) = (>!)
     
@@ -186,7 +186,7 @@ instance LinearM IO (Linked e) (Ptr e)
       nx <- getNext es
       writeM nx (i - 1) e
     
-    reversed es = do xs <- o_foldlM (flip prepend) Z es; free es; return xs
+    reversed es = do xs <- foldlM (flip prepend) Z es; free es; return xs
     
     filled n e = n < 1 ? return Z $ filled (n - 1) e >>= prepend e
     
@@ -216,11 +216,11 @@ instance LinearM IO (Linked e) (Ptr e)
         go _ _ base  Z = return base
         go o f base es = (f o base =<< getElem es) >>=<< getNext es $ go (o + 1) f
     
-    o_foldrM _ base Z  = return base
-    o_foldrM f base es = (o_foldrM f base =<< getNext es) >>=<< getElem es $ flip f
+    foldrM _ base  Z = return base
+    foldrM f base es = (foldrM f base =<< getNext es) >>=<< getElem es $ flip f
     
-    o_foldlM _ base Z  = return base
-    o_foldlM f base es = (f base =<< getElem es) >>=<< getNext es $ o_foldlM f
+    foldlM _ base  Z = return base
+    foldlM f base es = (f base =<< getElem es) >>=<< getNext es $ foldlM f
 
 instance LinearM IO (Linked2 e) (Ptr e)
   where
@@ -300,12 +300,12 @@ instance LinearM IO (Linked2 e) (Ptr e)
         go _ _ base  Z = return base
         go o f base es = (f o base =<< getElem2 es) >>=<< getNext2 es $ go (o + 1) f
     
-    o_foldrM g b xs = go g b =<< getStart2 xs
+    foldrM g b xs = go g b =<< getStart2 xs
       where
         go _ base Z  = return base
         go f base es = (getNext2 es >>= go f base) >>=<< getElem2 es $ flip f
     
-    o_foldlM g b xs = go g b =<< getStart2 xs
+    foldlM g b xs = go g b =<< getStart2 xs
       where
         go _ base Z  = return base
         go f base es = (getElem2 es >>= f base) >>=<< getNext2 es $ go f

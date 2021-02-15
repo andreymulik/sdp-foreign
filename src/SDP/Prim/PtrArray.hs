@@ -64,17 +64,16 @@ instance Nullable (PtrArray e)
 instance Estimate (PtrArray e)
   where
     (<==>) = on (<=>) sizeOf
-    
+    (.>=.) = on (>=) sizeOf
+    (.<=.) = on (<=) sizeOf
     (.>.)  = on (>)  sizeOf
     (.<.)  = on (<)  sizeOf
-    (.<=.) = on (<=) sizeOf
-    (.>=.) = on (>=) sizeOf
     
     (<.=>) = (<=>) . sizeOf
-    (.>)   = (>)   . sizeOf
-    (.<)   = (<)   . sizeOf
     (.>=)  = (>=)  . sizeOf
     (.<=)  = (<=)  . sizeOf
+    (.>)   = (>)   . sizeOf
+    (.<)   = (<)   . sizeOf
 
 instance Bordered (PtrArray e) Int
   where
@@ -152,11 +151,11 @@ instance (Storable e) => LinearM IO (PtrArray e) e
       let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f i
       in  go (n - 1)
     
-    o_foldrM f base = \ arr@(PtrArray n _ _) ->
+    foldrM f base = \ arr@(PtrArray n _ _) ->
       let go i = n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f
       in  go 0
     
-    o_foldlM f base = \ arr@(PtrArray n _ _) ->
+    foldlM f base = \ arr@(PtrArray n _ _) ->
       let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f
       in  go (n - 1)
 
@@ -305,6 +304,7 @@ underEx =  throw . IndexUnderflow . showString "in SDP.Prim.PtrArray."
 
 overEx :: String -> a
 overEx =  throw . IndexOverflow . showString "in SDP.Prim.PtrArray."
+
 
 
 

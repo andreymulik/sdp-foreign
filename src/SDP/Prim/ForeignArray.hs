@@ -153,11 +153,11 @@ instance (Storable e) => LinearM IO (ForeignArray e) e
       let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f i
       in  go (n - 1)
     
-    o_foldrM f base = \ arr@(ForeignArray n _ _) ->
+    foldrM f base = \ arr@(ForeignArray n _ _) ->
       let go i = n == i ? return base $ (arr !#> i) >>=<< go (i + 1) $ f
       in  go 0
     
-    o_foldlM f base = \ arr@(ForeignArray n _ _) ->
+    foldlM f base = \ arr@(ForeignArray n _ _) ->
       let go i = -1 == i ? return base $ go (i - 1) >>=<< (arr !#> i) $ f
       in  go (n - 1)
 
