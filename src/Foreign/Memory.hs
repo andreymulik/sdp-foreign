@@ -1,9 +1,17 @@
+{- |
+    Module      :  Foreign.Memory
+    Copyright   :  (c) Andrey Mulik 2020
+    License     :  BSD-style
+    Maintainer  :  work.a.mulik@gmail.com
+    Portability :  portable
+    
+    @Foreign.Memory@ provide classes for types, which use unmanaged memory.
+-}
 module Foreign.Memory
 (
   -- * Export
-  module Foreign.Marshal,
-  
   module Foreign.ForeignPtr,
+  module Foreign.Marshal,
   module Foreign.Ptr,
   
   -- * Pointer operations.
@@ -40,6 +48,7 @@ ptr *& c = ptr +& (c * sizeOf (undefined `asProxyTypeOf` ptr))
 
 --------------------------------------------------------------------------------
 
+-- | 'IsPtr' is class types, which implements pointer casting and arithmetic.
 class IsPtr ptr
   where
     {-# MINIMAL ((+*) | (+&)) #-}
@@ -68,6 +77,7 @@ instance IsPtr ForeignPtr
 
 --------------------------------------------------------------------------------
 
+-- | 'Destruct' is class of types, which deals unmanaged memory.
 class Destruct mem
   where
     -- | Free all associated memory blocks.
@@ -91,6 +101,7 @@ instance Destruct ForeignPtr
 
 --------------------------------------------------------------------------------
 
+-- | 'Finalize' is class of 'ForeignPtr'-based types.
 class Finalize mem
   where
     -- | Causes associated finalizers to be run immediately.
@@ -106,5 +117,4 @@ instance Finalize ForeignPtr
   where
     finalize = finalizeForeignPtr
     touch    = touchForeignPtr
-
 
